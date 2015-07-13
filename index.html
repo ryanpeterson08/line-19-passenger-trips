@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+
+.trip-arcs {
+  display: none;
+}
+
+.stops circle {
+  fill: steelblue;
+  stroke: #fff;
+  pointer-events: all;
+}
+
+.stop:hover .trip-arcs {
+  display: inline;
+  stroke-width: 1;
+  stroke: #000000;
+
+}
+
+
+</style>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/queue-async/1.0.7/queue.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/1.6.19/topojson.min.js"></script>
+<script>
+
+var width = 960,
+    height = 1000;
+
+var proj = d3.geo.mercator()
+                 .translate([width / 2, height / 2])
+                 .scale(150);
+
+var path = d3.geo.path()
+             .projection(proj);
+
+
+var svg = d3.select("body")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+queue()
+    .defer(d3.json, "./line19Route.geojson")
+    .defer(d3.csv, "stops.csv")
+    .defer(d3.csv, "tripOnOff.csv")
+    .await(ready);
+
+function ready(error, route, stops, trips) {
+
+  if (error) throw error;
+
+  proj
+   .scale(1)
+   .translate([0,0]); 
+
+  var b = path.bounds(route),
+      s = .95 / Math.max((b[1][0] - b[0][0]) / width, (b[1][1] - b[0][1]) / height),
+      t = [(width - s * (b[1][0] + b[0][0])) / 2, (height - s * (b[1][1] + b[0][1])) / 2];
+
+  proj
+   .scale(s)
+   .translate(t);
+ 
+  var stopById = d3.map(),
+      position = [];
+  
+  stops.forEach(function(d){
+    stopById.set(d.stop_id, d);
+    d.getOn = [];
+    d.getOff = [];
+  });
+
+  trips.forEach(function(trip) {
+    var source = stopById.get(trip.on_stop_id),
+        target = stopById.get(trip.off_stop_id),
+        link = {source: source, target: target};
+    source.getOn.push(link);
+    target.getOff.push(link);
+  });
+
+  stops = stops.filter(function(d) {
+    if (d.count = Math.max(d.getOn.length, d.getOff.length)) {
+      d[0] = +d.lon;
+      d[1] = +d.lat;
+      var position = proj(d);
+      d.x = position[0];
+      d.y = position[1];
+      return true;
+    }
+  });
+ 
+  svg.selectAll('path')
+               .data(route.features)
+               .enter()
+               .append('path')
+               .attr('d', path)
+               .attr('fill-opacity', 0)
+               .attr('stroke', 'orange')
+               .attr('stroke-width', 2);
+
+  var stop = svg.append("g")
+      .attr("class", "stops")
+      .selectAll("g")
+      .data(stops)
+      .enter()
+      .append("g")
+      .attr("class", "stop");
+
+
+  stop.append("g")
+      .attr("class", "trip-arcs")
+      .selectAll("path")
+      .data(function(d) { return d.getOn; })
+      .enter()
+      .append("path")
+      .attr("d", function(d) { return path({type: "LineString", coordinates: [d.source,  d.target]}); });
+
+     
+
+  stop.append("circle")
+      .attr('r', 5)
+      .attr("transform", function(d) { return "translate(" + proj([d.lon, d.lat]) + ")";})
+
+}
+
+</script>
