@@ -48,9 +48,11 @@ queue()
     .defer(d3.json, "./line19Route.geojson")
     .defer(d3.csv, "stops.csv")
     .defer(d3.csv, "tripOnOff.csv")
+    .defer(d3.json, "arterials.geojson")
+    .defer(d3.json, "river.geojson")
     .await(ready);
 
-function ready(error, route, stops, trips) {
+function ready(error, route, stops, trips, arterials, river) {
 
   if (error) throw error;
 
@@ -102,6 +104,23 @@ function ready(error, route, stops, trips) {
                .attr('fill-opacity', 0)
                .attr('stroke', 'orange')
                .attr('stroke-width', 2);
+
+  svg.selectAll('path')
+               .data(river.features)
+               .enter()
+               .append('path')
+               .attr('d', path)
+               .attr('fill', '#3399FF')
+               .attr('fill-opacity', 0.5);
+ 
+  svg.selectAll('path')
+               .data(arterials.features)
+               .enter()
+               .append('path')
+               .attr('d', path)
+               .attr('fill-opacity', 0)
+               .attr('stroke', 'grey')
+               .attr('stroke-width', 0.5);
 
   var stop = svg.append("g")
       .attr("class", "stops")
